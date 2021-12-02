@@ -2,6 +2,7 @@ package fson
 
 import (
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -51,6 +52,54 @@ func New(path string) (*FSON, error) {
 	}
 
 	return fson, nil
+}
+
+func (fson *FSON) Write(path ...string) error {
+	if fson.Parent.FSONType == FSONTypeArray {
+		path = append(path, strconv.Itoa(fson.Index))
+	} else {
+		path = append(path, fson.Name)
+	}
+
+	if fson.FSONType == FSONTypeFile {
+		f, err := os.Create(filepath.Join(path...))
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		_, err = f.WriteString(fson.Value)
+		if err != nil {
+			return err
+		}
+	} else if fson.FSONType == FSONTypeObject {
+		err := os.Mkdir(filepath.Join(path...), fs.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		for _, child := range fson.Children {
+			err = child.Write(path...)
+			if err != nil {
+				return err
+			}
+		}
+	} else if fson.FSONType == FSONTypeArray {
+		err := os.Mkdir(filepath.Join(path...), fs.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		for _, child := range fson.Children {
+			err = child.Write(path...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (fson *FSON) Get(path ...string) (*FSON, error) {
