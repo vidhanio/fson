@@ -1,6 +1,7 @@
-package fson
+package main
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,6 +27,20 @@ type FSON struct {
 	Children []*FSON
 	File     *FSON
 	Parent   *FSON
+}
+
+func main() {
+
+	sampleFSON := &FSON{
+		Name:     "sample",
+		FSONType: FSONTypeObject,
+	}
+	sampleFSON.NewNamedChild("vidhan", FSONTypeArray, "test").NewIndexedChild(FSONTypeFile, "test")
+
+	err := sampleFSON.Write(".")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func New(path string) (*FSON, error) {
@@ -55,10 +70,19 @@ func New(path string) (*FSON, error) {
 }
 
 func (fson *FSON) Write(path ...string) error {
-	if fson.Parent.FSONType == FSONTypeArray {
-		path = append(path, strconv.Itoa(fson.Index))
-	} else {
+	fmt.Printf("%+v\n", fson)
+	if fson.Parent == nil {
 		path = append(path, fson.Name)
+	} else {
+		if fson.Parent.FSONType == FSONTypeArray {
+			path = append(path, strconv.Itoa(fson.Index))
+		} else {
+			name := fson.Name
+			if fson.FSONType == FSONTypeArray {
+				name += "_"
+			}
+			path = append(path, name)
+		}
 	}
 
 	if fson.FSONType == FSONTypeFile {
@@ -165,10 +189,17 @@ func (fson *FSON) GetIndexedChild(index int) (*FSON, error) {
 	return fson.Children[index], nil
 }
 
-func (fson *FSON) NewNamedChild(name string, fsonType FSONType, value string) (*FSON, error) {
-	if fson.FSONType != FSONTypeObject {
-		return nil, errors.ErrNotAnObject
+/*
+Creates a child for an FSON Object.
+Make sure to assert that fson.FSONType == FSONTypeObject
+
+	if fson.FSONType == FSONTypeObject {
+		fson.NewNamedChild("fson name", FSONTypeFile, "fson value")
 	}
+
+Value is ignored if fsonType != FSONTypeFile
+*/
+func (fson *FSON) NewNamedChild(name string, fsonType FSONType, value string) *FSON {
 
 	newFSON := &FSON{
 		Name:     name,
@@ -182,14 +213,20 @@ func (fson *FSON) NewNamedChild(name string, fsonType FSONType, value string) (*
 
 	fson.Children = append(fson.Children, newFSON)
 
-	return newFSON, nil
+	return newFSON
 }
 
-func (fson *FSON) NewIndexedChild(fsonType FSONType, value string) (*FSON, error) {
-	if fson.FSONType != FSONTypeArray {
-		return nil, errors.ErrNotAnArray
+/*
+Creates a child for an FSON Array.
+Make sure to assert that fson.FSONType == FSONTypeArray
+
+	if fson.FSONType == FSONTypeArray {
+		fson.NewIndexedChild(FSONTypeFile, "fson value")
 	}
 
+Value is ignored if fsonType != FSONTypeFile
+*/
+func (fson *FSON) NewIndexedChild(fsonType FSONType, value string) *FSON {
 	newFSON := &FSON{
 		Index:    len(fson.Children),
 		FSONType: fsonType,
@@ -202,7 +239,7 @@ func (fson *FSON) NewIndexedChild(fsonType FSONType, value string) (*FSON, error
 
 	fson.Children = append(fson.Children, newFSON)
 
-	return newFSON, nil
+	return newFSON
 }
 
 // Get the FSONType from the folder name.
